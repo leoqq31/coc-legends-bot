@@ -45,7 +45,7 @@ module.exports = {
     const sub = interaction.options.getSubcommand();
 
     if (sub === 'add') {
-      await interaction.deferReply();
+      await interaction.deferReply({ ephemeral: true });
       const tag = normalizeTag(interaction.options.getString('tag'));
       const channel = interaction.options.getChannel('channel');
 
@@ -72,20 +72,20 @@ module.exports = {
     if (sub === 'remove') {
       const tag = normalizeTag(interaction.options.getString('tag'));
       removeClan.run(tag, interaction.guildId);
-      return interaction.reply({ embeds: [successEmbed(`Stopped tracking clan \`${tag}\`.`)] });
+      return interaction.reply({ embeds: [successEmbed(`Stopped tracking clan \`${tag}\`.`)], ephemeral: true });
     }
 
     if (sub === 'list') {
       const clans = getGuildClans.all(interaction.guildId);
       if (clans.length === 0) {
-        return interaction.reply({ embeds: [errorEmbed('No clans tracked. Use `/clan add <tag>` to start.')] });
+        return interaction.reply({ embeds: [errorEmbed('No clans tracked. Use `/clan add <tag>` to start.')], ephemeral: true });
       }
       const lines = clans.map(c => `**${c.clan_name}** — \`${c.clan_tag}\``);
-      return interaction.reply({ embeds: [successEmbed(`Tracked clans:\n${lines.join('\n')}`)] });
+      return interaction.reply({ embeds: [successEmbed(`Tracked clans:\n${lines.join('\n')}`)], ephemeral: true });
     }
 
     if (sub === 'info') {
-      await interaction.deferReply();
+      await interaction.deferReply({ ephemeral: true });
       const clans = getGuildClans.all(interaction.guildId);
       if (clans.length === 0) {
         return interaction.editReply({ embeds: [errorEmbed('No clans tracked.')] });

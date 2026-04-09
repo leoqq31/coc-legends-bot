@@ -19,6 +19,7 @@ module.exports = {
 
     return interaction.reply({
       embeds: [successEmbed(`Upgrade notifications will be sent to ${channel}.\nThe bot will detect when any clan member upgrades a hero, troop, spell, pet, or equipment.`)],
+      ephemeral: true,
     });
   },
 };
