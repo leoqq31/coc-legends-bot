@@ -61,9 +61,10 @@ async function pollAllClans(isReset = false) {
         const oldTags = new Set(oldPlayers.map(p => p.player_tag));
         const newTags = new Set(members.map(m => m.tag));
 
-        // New members (joined)
+        // New members (joined) — only notify if we had at least 5 stored members
+        // This prevents spam on first poll or after DB reset
         for (const m of members) {
-          if (!oldTags.has(m.tag) && oldPlayers.length > 0) {
+          if (!oldTags.has(m.tag) && oldPlayers.length >= 5) {
             console.log(`[Clan] ${m.name} joined ${clan.clan_tag}`);
             await sendClanNotification(_client, m.name, 'join');
           }
@@ -83,8 +84,8 @@ async function pollAllClans(isReset = false) {
         try {
           const playerData = await getPlayer(member.tag);
           const legendStats = playerData.legendStatistics;
-          const isLegend = !!legendStats?.currentSeason || currentTrophies >= 4000;
           const currentTrophies = playerData.trophies;
+          const isLegend = !!legendStats?.currentSeason || currentTrophies >= 4000;
           const legendRank = legendStats?.currentSeason?.rank || 0;
 
           upsertPlayer.run(
