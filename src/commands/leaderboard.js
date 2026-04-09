@@ -29,7 +29,7 @@ module.exports = {
 
     const guildName = interaction.guild?.name || 'Server';
     const embed = leaderboardEmbed(guildName, allEntries, today);
-    embed.setFooter({ text: 'Auto-updates every 5 min' });
+    embed.setFooter({ text: 'Auto-updates every 1 min' });
     embed.setTimestamp();
 
     // Send the leaderboard message

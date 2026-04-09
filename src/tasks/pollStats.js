@@ -1,9 +1,45 @@
 const cron = require('node-cron');
 const { getPlayer, getClanMembers } = require('../api/coc');
-const { getAllClans, upsertPlayer, upsertDailyStats, getDailyStats, getAllBoards, getGuildClans, getClanLeaderboard, updateBoardMessage } = require('../database/queries');
+const { getAllClans, upsertPlayer, upsertDailyStats, getDailyStats, getAllBoards, getGuildClans, getClanLeaderboard, updateBoardMessage, getClanPlayers, removePlayer, getAllUpgradeChannels } = require('../database/queries');
+const { EmbedBuilder } = require('discord.js');
 const { getLegendDay } = require('../utils/format');
 const { leaderboardEmbed } = require('../utils/embed');
+const { checkPlayerUpgrades, sendUpgradeNotifications } = require('./upgradeTracker');
 const config = require('../config');
+
+// Store client reference for notifications
+let _client = null;
+
+/**
+ * Send clan join/leave notification to upgrade channels.
+ */
+async function sendClanNotification(client, playerName, type) {
+  const channels = getAllUpgradeChannels.all();
+
+  let embed;
+  if (type === 'join') {
+    embed = new EmbedBuilder()
+      .setColor(0x2ecc71)
+      .setTitle('\uD83D\uDC4B Нов член!')
+      .setDescription(`\uD83C\uDF89 Добре дошъл, **${playerName}** в клана!`)
+      .setTimestamp();
+  } else {
+    embed = new EmbedBuilder()
+      .setColor(0xe74c3c)
+      .setTitle('\uD83D\uDEAA Напускане!')
+      .setDescription(`\uD83D\uDE14 За съжаление, **${playerName}** напусна клана.`)
+      .setTimestamp();
+  }
+
+  for (const ch of channels) {
+    try {
+      const channel = await client.channels.fetch(ch.channel_id);
+      if (channel) await channel.send({ embeds: [embed] });
+    } catch (err) {
+      console.error(`[Clan] Failed to send notification:`, err.message);
+    }
+  }
+}
 
 /**
  * Scrape all registered clans, discover legends players, and track trophy changes.
@@ -19,11 +55,35 @@ async function pollAllClans(isReset = false) {
     try {
       const members = await getClanMembers(clan.clan_tag);
 
+      // Detect joins and leaves
+      if (_client) {
+        const oldPlayers = getClanPlayers.all(clan.clan_tag);
+        const oldTags = new Set(oldPlayers.map(p => p.player_tag));
+        const newTags = new Set(members.map(m => m.tag));
+
+        // New members (joined)
+        for (const m of members) {
+          if (!oldTags.has(m.tag) && oldPlayers.length > 0) {
+            console.log(`[Clan] ${m.name} joined ${clan.clan_tag}`);
+            await sendClanNotification(_client, m.name, 'join');
+          }
+        }
+
+        // Old members no longer in clan (left)
+        for (const p of oldPlayers) {
+          if (!newTags.has(p.player_tag)) {
+            console.log(`[Clan] ${p.player_name} left ${clan.clan_tag}`);
+            await sendClanNotification(_client, p.player_name, 'leave');
+            removePlayer.run(p.player_tag);
+          }
+        }
+      }
+
       for (const member of members) {
         try {
           const playerData = await getPlayer(member.tag);
           const legendStats = playerData.legendStatistics;
-          const isLegend = !!legendStats?.currentSeason;
+          const isLegend = !!legendStats?.currentSeason || currentTrophies >= 4000;
           const currentTrophies = playerData.trophies;
           const legendRank = legendStats?.currentSeason?.rank || 0;
 
@@ -35,6 +95,15 @@ async function pollAllClans(isReset = false) {
             legendRank,
             isLegend ? 1 : 0
           );
+
+          // Check for upgrades (all members, not just legends)
+          if (_client) {
+            const upgrades = checkPlayerUpgrades(member.tag, playerData);
+            if (upgrades.length > 0) {
+              console.log(`[Upgrades] ${member.name}: ${upgrades.map(u => `${u.name} -> ${u.newLevel}`).join(', ')}`);
+              await sendUpgradeNotifications(_client, member.name, upgrades);
+            }
+          }
 
           if (!isLegend) {
             await new Promise(r => setTimeout(r, 100));
@@ -145,6 +214,8 @@ async function updateBoards(client) {
  * Start the polling cron jobs.
  */
 function startPolling(client) {
+  _client = client;
+
   async function pollAndUpdate(isReset = false) {
     await pollAllClans(isReset);
     await updateBoards(client);

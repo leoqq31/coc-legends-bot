@@ -36,8 +36,16 @@ const upsertPlayer = db.prepare(`
     last_updated = unixepoch()
 `);
 
+const getClanPlayers = db.prepare(`
+  SELECT * FROM players WHERE clan_tag = ?
+`);
+
 const getLegendPlayers = db.prepare(`
   SELECT * FROM players WHERE clan_tag = ? AND is_legend = 1 ORDER BY trophies DESC
+`);
+
+const removePlayer = db.prepare(`
+  DELETE FROM players WHERE player_tag = ?
 `);
 
 const getPlayerByTag = db.prepare(`
@@ -76,7 +84,7 @@ const getClanLeaderboard = db.prepare(`
          ds.attack_trophies, ds.defense_trophies
   FROM players p
   LEFT JOIN daily_stats ds ON p.player_tag = ds.player_tag AND ds.date = ?
-  WHERE p.clan_tag = ? AND p.is_legend = 1 AND p.trophies >= 3800
+  WHERE p.clan_tag = ? AND p.trophies >= 4000
   ORDER BY COALESCE(ds.end_trophies, p.trophies) DESC
 `);
 
@@ -102,13 +110,47 @@ const updateBoardMessage = db.prepare(`
   UPDATE boards SET message_id = ? WHERE guild_id = ?
 `);
 
+// ── Player Levels (upgrade tracking) ──
+
+const getPlayerLevels = db.prepare(`
+  SELECT * FROM player_levels WHERE player_tag = ?
+`);
+
+const upsertPlayerLevels = db.prepare(`
+  INSERT INTO player_levels (player_tag, levels_json, updated_at)
+  VALUES (?, ?, unixepoch())
+  ON CONFLICT(player_tag) DO UPDATE SET
+    levels_json = excluded.levels_json,
+    updated_at = unixepoch()
+`);
+
+// ── Upgrade Channels ──
+
+const setUpgradeChannel = db.prepare(`
+  INSERT INTO upgrade_channels (guild_id, channel_id)
+  VALUES (?, ?)
+  ON CONFLICT(guild_id) DO UPDATE SET channel_id = excluded.channel_id
+`);
+
+const getUpgradeChannel = db.prepare(`
+  SELECT * FROM upgrade_channels WHERE guild_id = ?
+`);
+
+const getAllUpgradeChannels = db.prepare(`
+  SELECT uc.guild_id, uc.channel_id, c.clan_tag
+  FROM upgrade_channels uc
+  JOIN clans c ON uc.guild_id = c.guild_id
+`);
+
 module.exports = {
   registerClan,
   removeClan,
   getGuildClans,
   getAllClans,
   upsertPlayer,
+  getClanPlayers,
   getLegendPlayers,
+  removePlayer,
   getPlayerByTag,
   getAllLegendPlayers,
   upsertDailyStats,
@@ -119,4 +161,9 @@ module.exports = {
   getBoard,
   getAllBoards,
   updateBoardMessage,
+  getPlayerLevels,
+  upsertPlayerLevels,
+  setUpgradeChannel,
+  getUpgradeChannel,
+  getAllUpgradeChannels,
 };

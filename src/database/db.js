@@ -49,6 +49,17 @@ db.pragma('foreign_keys = ON');
       message_id TEXT
     );
 
+    CREATE TABLE IF NOT EXISTS player_levels (
+      player_tag TEXT NOT NULL PRIMARY KEY,
+      levels_json TEXT NOT NULL DEFAULT '{}',
+      updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+    );
+
+    CREATE TABLE IF NOT EXISTS upgrade_channels (
+      guild_id TEXT NOT NULL PRIMARY KEY,
+      channel_id TEXT NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_daily_stats_date ON daily_stats(date);
     CREATE INDEX IF NOT EXISTS idx_daily_stats_player ON daily_stats(player_tag);
     CREATE INDEX IF NOT EXISTS idx_players_clan ON players(clan_tag);
