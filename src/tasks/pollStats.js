@@ -61,22 +61,27 @@ async function pollAllClans(isReset = false) {
         const oldTags = new Set(oldPlayers.map(p => p.player_tag));
         const newTags = new Set(members.map(m => m.tag));
 
-        // New members (joined) — only notify if we had at least 5 stored members
-        // This prevents spam on first poll or after DB reset
-        for (const m of members) {
-          if (!oldTags.has(m.tag) && oldPlayers.length >= 5) {
-            console.log(`[Clan] ${m.name} joined ${clan.clan_tag}`);
-            await sendClanNotification(_client, m.name, 'join');
+        // Only detect joins/leaves if we have a solid baseline
+        // (at least 80% of current members already stored — prevents spam on fresh DB)
+        if (oldPlayers.length >= members.length * 0.8) {
+          // New members (joined)
+          for (const m of members) {
+            if (!oldTags.has(m.tag)) {
+              console.log(`[Clan] ${m.name} joined ${clan.clan_tag}`);
+              await sendClanNotification(_client, m.name, 'join');
+            }
           }
-        }
 
-        // Old members no longer in clan (left)
-        for (const p of oldPlayers) {
-          if (!newTags.has(p.player_tag)) {
-            console.log(`[Clan] ${p.player_name} left ${clan.clan_tag}`);
-            await sendClanNotification(_client, p.player_name, 'leave');
-            removePlayer.run(p.player_tag);
+          // Old members no longer in clan (left)
+          for (const p of oldPlayers) {
+            if (!newTags.has(p.player_tag)) {
+              console.log(`[Clan] ${p.player_name} left ${clan.clan_tag}`);
+              await sendClanNotification(_client, p.player_name, 'leave');
+              removePlayer.run(p.player_tag);
+            }
           }
+        } else if (oldPlayers.length > 0) {
+          console.log(`[Clan] Skipping join/leave — baseline incomplete (${oldPlayers.length}/${members.length})`);
         }
       }
 
