@@ -1,0 +1,21 @@
+{
+  "name": "clashofclans",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "deploy": "node src/deploy-commands.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "better-sqlite3": "^12.8.0",
+    "discord.js": "^14.26.2",
+    "dotenv": "^17.4.1",
+    "node-cron": "^4.2.1",
+    "undici": "^8.0.2"
+  }
+}
