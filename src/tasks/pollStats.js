@@ -112,7 +112,7 @@ async function pollAllClans(isReset = false) {
           }
 
           if (!isLegend) {
-            await new Promise(r => setTimeout(r, 100));
+            await new Promise(r => setTimeout(r, 500));
             continue;
           }
 
@@ -158,7 +158,7 @@ async function pollAllClans(isReset = false) {
           console.error(`[Poll] Failed to fetch player ${member.tag}:`, err.message);
         }
 
-        await new Promise(r => setTimeout(r, 100));
+        await new Promise(r => setTimeout(r, 500));
       }
 
       console.log(`[Poll] ${clan.clan_tag}: scraped ${members.length} members`);

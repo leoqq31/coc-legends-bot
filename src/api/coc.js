@@ -7,19 +7,29 @@ function encodeTag(tag) {
   return encodeURIComponent(tag.startsWith('#') ? tag : `#${tag}`);
 }
 
-async function apiRequest(endpoint) {
-  const res = await fetch(`${BASE_URL}${endpoint}`, {
-    headers: { Authorization: `Bearer ${config.cocApiKey}` },
-  });
+async function apiRequest(endpoint, retries = 2) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(`${BASE_URL}${endpoint}`, {
+        headers: { Authorization: `Bearer ${config.cocApiKey}` },
+      });
 
-  if (!res.ok) {
-    const body = await res.text();
-    const error = new Error(`CoC API ${res.status}: ${body}`);
-    error.status = res.status;
-    throw error;
+      if (!res.ok) {
+        const body = await res.text();
+        const error = new Error(`CoC API ${res.status}: ${body}`);
+        error.status = res.status;
+        throw error;
+      }
+
+      return await res.json();
+    } catch (err) {
+      if (attempt < retries && (!err.status || err.status >= 500 || err.message === 'fetch failed')) {
+        await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+        continue;
+      }
+      throw err;
+    }
   }
-
-  return res.json();
 }
 
 async function getPlayer(playerTag) {
