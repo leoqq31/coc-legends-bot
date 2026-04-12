@@ -49,6 +49,11 @@ db.pragma('foreign_keys = ON');
       message_id TEXT
     );
 
+    CREATE TABLE IF NOT EXISTS daily_channels (
+      guild_id TEXT NOT NULL PRIMARY KEY,
+      channel_id TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS player_levels (
       player_tag TEXT NOT NULL PRIMARY KEY,
       levels_json TEXT NOT NULL DEFAULT '{}',

@@ -1,6 +1,6 @@
 const cron = require('node-cron');
 const { getPlayer, getClanMembers } = require('../api/coc');
-const { getAllClans, upsertPlayer, upsertDailyStats, getDailyStats, getAllBoards, getGuildClans, getClanLeaderboard, updateBoardMessage, getClanPlayers, removePlayer, getAllUpgradeChannels } = require('../database/queries');
+const { getAllClans, upsertPlayer, upsertDailyStats, getDailyStats, getAllBoards, getGuildClans, getClanLeaderboard, updateBoardMessage, getClanPlayers, removePlayer, getAllUpgradeChannels, getAllDailyChannels } = require('../database/queries');
 const { EmbedBuilder } = require('discord.js');
 const { getLegendDay } = require('../utils/format');
 const { leaderboardEmbed } = require('../utils/embed');
@@ -217,6 +217,51 @@ async function updateBoards(client) {
 }
 
 /**
+ * Post yesterday's legend summary to all configured daily channels.
+ */
+async function postDailySummary(client) {
+  const dailyChannels = getAllDailyChannels.all();
+  if (dailyChannels.length === 0) return;
+
+  // Get yesterday's date
+  const yesterday = new Date();
+  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+  const yesterdayStr = getLegendDay(yesterday);
+
+  for (const dc of dailyChannels) {
+    try {
+      const channel = await client.channels.fetch(dc.channel_id);
+      if (!channel) continue;
+
+      const guild = channel.guild;
+      const clans = getGuildClans.all(guild.id);
+
+      let allEntries = [];
+      for (const clan of clans) {
+        const entries = getClanLeaderboard.all(yesterdayStr, clan.clan_tag);
+        allEntries.push(...entries);
+      }
+
+      // Only include entries that have stats
+      allEntries = allEntries.filter(e => e.end_trophies != null);
+      allEntries.sort((a, b) => (b.end_trophies || 0) - (a.end_trophies || 0));
+
+      if (allEntries.length === 0) continue;
+
+      const embed = leaderboardEmbed(guild.name, allEntries, yesterdayStr);
+      embed.setTitle(`\uD83D\uDCCA ${guild.name} - Дневен отчет`);
+      embed.setFooter({ text: `Legend Day: ${yesterdayStr}` });
+      embed.setTimestamp();
+
+      await channel.send({ embeds: [embed] });
+      console.log(`[Daily] Posted summary for ${yesterdayStr} in ${guild.name}`);
+    } catch (err) {
+      console.error(`[Daily] Failed for guild ${dc.guild_id}:`, err.message);
+    }
+  }
+}
+
+/**
  * Start the polling cron jobs.
  */
 function startPolling(client) {
@@ -231,6 +276,11 @@ function startPolling(client) {
   cron.schedule(`*/${config.pollIntervalMinutes} * * * *`, () => {
     pollAndUpdate().catch(err => console.error('[Poll] Cron error:', err));
   });
+
+  // Post daily summary at 5:00 AM UTC (before reset)
+  cron.schedule('0 5 * * *', () => {
+    postDailySummary(client).catch(err => console.error('[Daily] Summary error:', err));
+  }, { timezone: 'UTC' });
 
   // Legend day reset poll at 5:01 AM UTC
   cron.schedule('1 5 * * *', () => {

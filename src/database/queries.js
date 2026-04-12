@@ -124,6 +124,18 @@ const upsertPlayerLevels = db.prepare(`
     updated_at = unixepoch()
 `);
 
+// ── Daily Summary Channels ──
+
+const setDailyChannel = db.prepare(`
+  INSERT INTO daily_channels (guild_id, channel_id)
+  VALUES (?, ?)
+  ON CONFLICT(guild_id) DO UPDATE SET channel_id = excluded.channel_id
+`);
+
+const getAllDailyChannels = db.prepare(`
+  SELECT * FROM daily_channels
+`);
+
 // ── Upgrade Channels ──
 
 const setUpgradeChannel = db.prepare(`
@@ -163,6 +175,8 @@ module.exports = {
   updateBoardMessage,
   getPlayerLevels,
   upsertPlayerLevels,
+  setDailyChannel,
+  getAllDailyChannels,
   setUpgradeChannel,
   getUpgradeChannel,
   getAllUpgradeChannels,
