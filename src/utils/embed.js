@@ -83,13 +83,15 @@ function leaderboardEmbed(guildName, entries, date) {
     const net = e.net_trophies != null ? e.net_trophies : 0;
     const atk = e.attack_trophies ?? 0;
     const def = e.defense_trophies ?? 0;
+    const atkCount = e.attack_count ?? 0;
+    const defCount = e.defense_count ?? 0;
 
     const netStr = formatTrophyChange(net);
     const netEmoji = net > 0 ? '\uD83D\uDD3C' : net < 0 ? '\uD83D\uDD3D' : '\u2796';
 
     embed.addFields({
       name: `${medal} ${e.player_name} \u2014 \uD83C\uDFC6 ${trophies}`,
-      value: `\u2694\uFE0F +${atk}  \u2502  \uD83D\uDEE1\uFE0F -${def}  \u2502  ${netEmoji} **${netStr}**`,
+      value: `\u2694\uFE0F ${atkCount}/8 +${atk}  \u2502  \uD83D\uDEE1\uFE0F ${defCount}/8 -${def}  \u2502  ${netEmoji} **${netStr}**`,
       inline: false,
     });
   }

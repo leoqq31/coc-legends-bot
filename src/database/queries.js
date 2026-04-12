@@ -81,7 +81,7 @@ const getStatsHistory = db.prepare(`
 const getClanLeaderboard = db.prepare(`
   SELECT p.player_name, p.player_tag, p.trophies, p.legend_rank,
          ds.start_trophies, ds.end_trophies, ds.net_trophies,
-         ds.attack_trophies, ds.defense_trophies
+         ds.attack_count, ds.attack_trophies, ds.defense_count, ds.defense_trophies
   FROM players p
   LEFT JOIN daily_stats ds ON p.player_tag = ds.player_tag AND ds.date = ?
   WHERE p.clan_tag = ? AND p.trophies >= 4000

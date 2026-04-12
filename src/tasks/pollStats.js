@@ -121,25 +121,41 @@ async function pollAllClans(isReset = false) {
           let startTrophies;
           let attackTrophies;
           let defenseTrophies;
+          let attackCount;
+          let defenseCount;
 
           if (isReset || !existing) {
-            // First poll of the day or reset: lock in start trophies
             startTrophies = currentTrophies;
             attackTrophies = 0;
             defenseTrophies = 0;
+            attackCount = 0;
+            defenseCount = 0;
           } else {
             startTrophies = existing.start_trophies;
+            attackCount = existing.attack_count;
+            defenseCount = existing.defense_count;
 
-            // Compare current trophies to last polled trophies (end_trophies)
-            // to figure out what happened since the last poll
             const diff = currentTrophies - existing.end_trophies;
 
-            // Accumulate: if trophies went up = attacks, if down = defenses
-            // (In reality both could happen between polls, but this is the
-            // best approximation without per-attack data from the API)
-            attackTrophies = existing.attack_trophies + (diff > 0 ? diff : 0);
-            defenseTrophies = existing.defense_trophies + (diff < 0 ? Math.abs(diff) : 0);
+            if (diff > 0) {
+              // Trophies went up → attack happened
+              attackTrophies = existing.attack_trophies + diff;
+              defenseTrophies = existing.defense_trophies;
+              attackCount += 1;
+            } else if (diff < 0) {
+              // Trophies went down → defense happened
+              attackTrophies = existing.attack_trophies;
+              defenseTrophies = existing.defense_trophies + Math.abs(diff);
+              defenseCount += 1;
+            } else {
+              attackTrophies = existing.attack_trophies;
+              defenseTrophies = existing.defense_trophies;
+            }
           }
+
+          // Cap at 8 (max attacks/defenses per legend day)
+          attackCount = Math.min(attackCount, 8);
+          defenseCount = Math.min(defenseCount, 8);
 
           const netTrophies = currentTrophies - startTrophies;
 
@@ -147,9 +163,9 @@ async function pollAllClans(isReset = false) {
             member.tag,
             today,
             startTrophies,
-            0, // attack_count — not available from API
+            attackCount,
             attackTrophies,
-            0, // defense_count — not available from API
+            defenseCount,
             defenseTrophies,
             netTrophies,
             currentTrophies
