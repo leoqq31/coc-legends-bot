@@ -121,32 +121,39 @@ async function pollAllClans(isReset = false) {
           let startTrophies;
           let attackTrophies;
           let defenseTrophies;
+          let attackCount;
+          let defenseCount;
 
           if (isReset || !existing) {
             startTrophies = currentTrophies;
             attackTrophies = 0;
             defenseTrophies = 0;
+            attackCount = 0;
+            defenseCount = 0;
           } else {
             startTrophies = existing.start_trophies;
+            attackCount = existing.attack_count;
+            defenseCount = existing.defense_count;
 
             const diff = currentTrophies - existing.end_trophies;
 
             if (diff > 0) {
               attackTrophies = existing.attack_trophies + diff;
               defenseTrophies = existing.defense_trophies;
+              // Count how many attacks likely happened based on trophy gain
+              // Each attack gives 5-40 trophies, so divide by 40 and ceil
+              const newAttacks = Math.ceil(diff / 40);
+              attackCount = Math.min(attackCount + newAttacks, 8);
             } else if (diff < 0) {
               attackTrophies = existing.attack_trophies;
               defenseTrophies = existing.defense_trophies + Math.abs(diff);
+              const newDefenses = Math.ceil(Math.abs(diff) / 40);
+              defenseCount = Math.min(defenseCount + newDefenses, 8);
             } else {
               attackTrophies = existing.attack_trophies;
               defenseTrophies = existing.defense_trophies;
             }
           }
-
-          // Estimate attack/defense counts from trophy totals
-          // Legend attacks give 5-40 trophies (avg ~35), defenses lose 5-40 (avg ~35)
-          const attackCount = Math.min(Math.round(attackTrophies / 35), 8);
-          const defenseCount = Math.min(Math.round(defenseTrophies / 35), 8);
 
           const netTrophies = currentTrophies - startTrophies;
 
