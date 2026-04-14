@@ -154,6 +154,65 @@ const getAllUpgradeChannels = db.prepare(`
   JOIN clans c ON uc.guild_id = c.guild_id
 `);
 
+// ── War Stars Tracking ──
+
+const addTrackedWarPlayer = db.prepare(`
+  INSERT INTO tracked_war_players (player_tag, guild_id, player_name)
+  VALUES (?, ?, ?)
+  ON CONFLICT(player_tag, guild_id) DO UPDATE SET player_name = excluded.player_name
+`);
+
+const removeTrackedWarPlayer = db.prepare(`
+  DELETE FROM tracked_war_players WHERE player_tag = ? AND guild_id = ?
+`);
+
+const getTrackedWarPlayers = db.prepare(`
+  SELECT * FROM tracked_war_players WHERE guild_id = ?
+`);
+
+const getAllTrackedWarPlayers = db.prepare(`
+  SELECT * FROM tracked_war_players
+`);
+
+const upsertWarStarSnapshot = db.prepare(`
+  INSERT INTO war_star_snapshots (player_tag, year_month, start_stars, current_stars)
+  VALUES (?, ?, ?, ?)
+  ON CONFLICT(player_tag, year_month) DO UPDATE SET current_stars = excluded.current_stars
+`);
+
+const getWarStarSnapshot = db.prepare(`
+  SELECT * FROM war_star_snapshots WHERE player_tag = ? AND year_month = ?
+`);
+
+const getWarLeaderboard = db.prepare(`
+  SELECT twp.player_name, twp.player_tag,
+         wss.start_stars, wss.current_stars,
+         (wss.current_stars - wss.start_stars) AS stars_this_month
+  FROM tracked_war_players twp
+  LEFT JOIN war_star_snapshots wss
+    ON twp.player_tag = wss.player_tag AND wss.year_month = ?
+  WHERE twp.guild_id = ?
+  ORDER BY stars_this_month DESC NULLS LAST, twp.player_name ASC
+`);
+
+// ── War Boards (auto-updating war leaderboard) ──
+
+const setWarBoard = db.prepare(`
+  INSERT INTO war_boards (guild_id, channel_id, message_id)
+  VALUES (?, ?, ?)
+  ON CONFLICT(guild_id) DO UPDATE SET
+    channel_id = excluded.channel_id,
+    message_id = excluded.message_id
+`);
+
+const getAllWarBoards = db.prepare(`
+  SELECT * FROM war_boards
+`);
+
+const updateWarBoardMessage = db.prepare(`
+  UPDATE war_boards SET message_id = ? WHERE guild_id = ?
+`);
+
 module.exports = {
   registerClan,
   removeClan,
@@ -180,4 +239,14 @@ module.exports = {
   setUpgradeChannel,
   getUpgradeChannel,
   getAllUpgradeChannels,
+  addTrackedWarPlayer,
+  removeTrackedWarPlayer,
+  getTrackedWarPlayers,
+  getAllTrackedWarPlayers,
+  upsertWarStarSnapshot,
+  getWarStarSnapshot,
+  getWarLeaderboard,
+  setWarBoard,
+  getAllWarBoards,
+  updateWarBoardMessage,
 };

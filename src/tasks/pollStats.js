@@ -1,10 +1,11 @@
 const cron = require('node-cron');
 const { getPlayer, getClanMembers } = require('../api/coc');
-const { getAllClans, upsertPlayer, upsertDailyStats, getDailyStats, getAllBoards, getGuildClans, getClanLeaderboard, updateBoardMessage, getClanPlayers, removePlayer, getAllUpgradeChannels, getAllDailyChannels } = require('../database/queries');
+const { getAllClans, upsertPlayer, upsertDailyStats, getDailyStats, getAllBoards, getGuildClans, getClanLeaderboard, updateBoardMessage, getClanPlayers, removePlayer, getAllUpgradeChannels, getAllDailyChannels, addTrackedWarPlayer } = require('../database/queries');
 const { EmbedBuilder } = require('discord.js');
 const { getLegendDay } = require('../utils/format');
 const { leaderboardEmbed } = require('../utils/embed');
 const { checkPlayerUpgrades, sendUpgradeNotifications } = require('./upgradeTracker');
+const { pollWarStars, updateWarBoards } = require('./warTracker');
 const config = require('../config');
 
 // Store client reference for notifications
@@ -101,6 +102,9 @@ async function pollAllClans(isReset = false) {
             legendRank,
             isLegend ? 1 : 0
           );
+
+          // Auto-add to war stars roster (persists even if they leave clan)
+          addTrackedWarPlayer.run(member.tag, clan.guild_id, member.name);
 
           // Check for upgrades (all members, not just legends)
           if (_client) {
@@ -286,6 +290,11 @@ function startPolling(client) {
     await updateBoards(client);
   }
 
+  async function pollWarAndUpdate() {
+    await pollWarStars();
+    await updateWarBoards(client);
+  }
+
   // Regular poll every 30 minutes
   cron.schedule(`*/${config.pollIntervalMinutes} * * * *`, () => {
     pollAndUpdate().catch(err => console.error('[Poll] Cron error:', err));
@@ -301,10 +310,16 @@ function startPolling(client) {
     pollAndUpdate(true).catch(err => console.error('[Poll] Reset poll error:', err));
   }, { timezone: 'UTC' });
 
+  // War stars poll every 10 minutes (war stars change slowly, no need for 1 min)
+  cron.schedule('*/10 * * * *', () => {
+    pollWarAndUpdate().catch(err => console.error('[War] Cron error:', err));
+  });
+
   // Initial poll on startup
   pollAndUpdate().catch(err => console.error('[Poll] Initial poll error:', err));
+  pollWarAndUpdate().catch(err => console.error('[War] Initial poll error:', err));
 
-  console.log('[Poll] Cron jobs started (regular + 5:01 AM UTC reset).');
+  console.log('[Poll] Cron jobs started (legend + war + reset).');
 }
 
 module.exports = { startPolling, pollAllClans };

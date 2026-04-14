@@ -65,7 +65,31 @@ db.pragma('foreign_keys = ON');
       channel_id TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS tracked_war_players (
+      player_tag TEXT NOT NULL,
+      guild_id TEXT NOT NULL,
+      player_name TEXT NOT NULL,
+      added_at INTEGER NOT NULL DEFAULT (unixepoch()),
+      PRIMARY KEY (player_tag, guild_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS war_star_snapshots (
+      player_tag TEXT NOT NULL,
+      year_month TEXT NOT NULL,
+      start_stars INTEGER NOT NULL DEFAULT 0,
+      current_stars INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (player_tag, year_month)
+    );
+
+    CREATE TABLE IF NOT EXISTS war_boards (
+      guild_id TEXT NOT NULL PRIMARY KEY,
+      channel_id TEXT NOT NULL,
+      message_id TEXT
+    );
+
     CREATE INDEX IF NOT EXISTS idx_daily_stats_date ON daily_stats(date);
+    CREATE INDEX IF NOT EXISTS idx_war_snapshots_month ON war_star_snapshots(year_month);
+    CREATE INDEX IF NOT EXISTS idx_tracked_war_guild ON tracked_war_players(guild_id);
     CREATE INDEX IF NOT EXISTS idx_daily_stats_player ON daily_stats(player_tag);
     CREATE INDEX IF NOT EXISTS idx_players_clan ON players(clan_tag);
   `);
