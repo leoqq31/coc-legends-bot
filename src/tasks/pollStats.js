@@ -5,7 +5,7 @@ const { EmbedBuilder } = require('discord.js');
 const { getLegendDay } = require('../utils/format');
 const { leaderboardEmbed } = require('../utils/embed');
 const { checkPlayerUpgrades, sendUpgradeNotifications } = require('./upgradeTracker');
-const { pollWarStars, updateWarBoards } = require('./warTracker');
+const { updatePlayerWarStars, updateWarBoards } = require('./warTracker');
 const config = require('../config');
 
 // Store client reference for notifications
@@ -105,6 +105,9 @@ async function pollAllClans(isReset = false) {
 
           // Auto-add to war stars roster (persists even if they leave clan)
           addTrackedWarPlayer.run(member.tag, clan.guild_id, member.name);
+
+          // Update war star snapshot (uses playerData we already have)
+          updatePlayerWarStars(member.tag, playerData);
 
           // Check for upgrades (all members, not just legends)
           if (_client) {
@@ -288,10 +291,6 @@ function startPolling(client) {
   async function pollAndUpdate(isReset = false) {
     await pollAllClans(isReset);
     await updateBoards(client);
-  }
-
-  async function pollWarAndUpdate() {
-    await pollWarStars();
     await updateWarBoards(client);
   }
 
@@ -310,14 +309,8 @@ function startPolling(client) {
     pollAndUpdate(true).catch(err => console.error('[Poll] Reset poll error:', err));
   }, { timezone: 'UTC' });
 
-  // War stars poll every 10 minutes (war stars change slowly, no need for 1 min)
-  cron.schedule('*/10 * * * *', () => {
-    pollWarAndUpdate().catch(err => console.error('[War] Cron error:', err));
-  });
-
   // Initial poll on startup
   pollAndUpdate().catch(err => console.error('[Poll] Initial poll error:', err));
-  pollWarAndUpdate().catch(err => console.error('[War] Initial poll error:', err));
 
   console.log('[Poll] Cron jobs started (legend + war + reset).');
 }

@@ -1,11 +1,8 @@
-const { getPlayer } = require('../api/coc');
 const {
-  getAllTrackedWarPlayers,
   getWarStarSnapshot,
   upsertWarStarSnapshot,
   getAllWarBoards,
   getWarLeaderboard,
-  getTrackedWarPlayers,
   updateWarBoardMessage,
 } = require('../database/queries');
 const { warLeaderboardEmbed } = require('../utils/embed');
@@ -20,42 +17,37 @@ function getCurrentYearMonth(date = new Date()) {
 }
 
 /**
- * Poll all tracked war players and update their war stars snapshots.
+ * Update a single player's war star snapshot.
+ * Called from the main legend poll where we already have playerData.
+ * Returns true if an attack was detected (stars increased).
  */
-async function pollWarStars() {
-  const players = getAllTrackedWarPlayers.all();
+function updatePlayerWarStars(playerTag, playerData) {
   const yearMonth = getCurrentYearMonth();
+  const currentStars = playerData.warStars || 0;
 
-  if (players.length === 0) return;
+  const existing = getWarStarSnapshot.get(playerTag, yearMonth);
 
-  console.log(`[War] Polling ${players.length} tracked war players for ${yearMonth}`);
+  let startStars;
+  let attackCount;
+  let attackHappened = false;
 
-  // Deduplicate by player_tag so we don't fetch the same player multiple times
-  const uniquePlayers = new Map();
-  for (const p of players) {
-    if (!uniquePlayers.has(p.player_tag)) {
-      uniquePlayers.set(p.player_tag, p);
+  if (!existing) {
+    // First time this month — lock in start
+    startStars = currentStars;
+    attackCount = 0;
+  } else {
+    startStars = existing.start_stars;
+    attackCount = existing.attack_count;
+
+    // If stars increased since last poll, count as 1 attack
+    if (currentStars > existing.current_stars) {
+      attackCount += 1;
+      attackHappened = true;
     }
   }
 
-  for (const player of uniquePlayers.values()) {
-    try {
-      const data = await getPlayer(player.player_tag);
-      const currentStars = data.warStars || 0;
-
-      // Check existing snapshot for this month
-      const existing = getWarStarSnapshot.get(player.player_tag, yearMonth);
-      const startStars = existing ? existing.start_stars : currentStars;
-
-      upsertWarStarSnapshot.run(player.player_tag, yearMonth, startStars, currentStars);
-    } catch (err) {
-      console.error(`[War] Failed to fetch ${player.player_tag}:`, err.message);
-    }
-
-    await new Promise(r => setTimeout(r, 500));
-  }
-
-  console.log('[War] Done.');
+  upsertWarStarSnapshot.run(playerTag, yearMonth, startStars, currentStars, attackCount);
+  return attackHappened;
 }
 
 /**
@@ -83,20 +75,18 @@ async function updateWarBoards(client) {
         try {
           const msg = await channel.messages.fetch(board.message_id);
           await msg.edit({ embeds: [embed] });
-          console.log(`[WarBoard] Updated message in ${guild.name}`);
           continue;
         } catch (err) {
-          console.log(`[WarBoard] Message not found in ${guild.name}, posting new one`);
+          // Message gone, post a new one
         }
       }
 
       const msg = await channel.send({ embeds: [embed] });
       updateWarBoardMessage.run(msg.id, guild.id);
-      console.log(`[WarBoard] Posted new war leaderboard in ${guild.name}`);
     } catch (err) {
       console.error(`[WarBoard] Failed for guild ${board.guild_id}:`, err.message);
     }
   }
 }
 
-module.exports = { pollWarStars, updateWarBoards, getCurrentYearMonth };
+module.exports = { updatePlayerWarStars, updateWarBoards, getCurrentYearMonth };

@@ -175,9 +175,11 @@ const getAllTrackedWarPlayers = db.prepare(`
 `);
 
 const upsertWarStarSnapshot = db.prepare(`
-  INSERT INTO war_star_snapshots (player_tag, year_month, start_stars, current_stars)
-  VALUES (?, ?, ?, ?)
-  ON CONFLICT(player_tag, year_month) DO UPDATE SET current_stars = excluded.current_stars
+  INSERT INTO war_star_snapshots (player_tag, year_month, start_stars, current_stars, attack_count)
+  VALUES (?, ?, ?, ?, ?)
+  ON CONFLICT(player_tag, year_month) DO UPDATE SET
+    current_stars = excluded.current_stars,
+    attack_count = excluded.attack_count
 `);
 
 const getWarStarSnapshot = db.prepare(`
@@ -186,13 +188,30 @@ const getWarStarSnapshot = db.prepare(`
 
 const getWarLeaderboard = db.prepare(`
   SELECT twp.player_name, twp.player_tag,
-         wss.start_stars, wss.current_stars,
+         wss.start_stars, wss.current_stars, wss.attack_count,
          (wss.current_stars - wss.start_stars) AS stars_this_month
   FROM tracked_war_players twp
   LEFT JOIN war_star_snapshots wss
     ON twp.player_tag = wss.player_tag AND wss.year_month = ?
   WHERE twp.guild_id = ?
   ORDER BY stars_this_month DESC NULLS LAST, twp.player_name ASC
+`);
+
+const getWarLeaderboardAllTime = db.prepare(`
+  SELECT twp.player_name, twp.player_tag,
+         COALESCE(SUM(wss.current_stars - wss.start_stars), 0) AS stars_this_month,
+         COALESCE(SUM(wss.attack_count), 0) AS attack_count,
+         COALESCE(MAX(wss.current_stars), 0) AS current_stars,
+         MIN(wss.year_month) AS first_month
+  FROM tracked_war_players twp
+  LEFT JOIN war_star_snapshots wss ON twp.player_tag = wss.player_tag
+  WHERE twp.guild_id = ?
+  GROUP BY twp.player_tag, twp.player_name
+  ORDER BY stars_this_month DESC, twp.player_name ASC
+`);
+
+const getEarliestWarMonth = db.prepare(`
+  SELECT MIN(year_month) AS first_month FROM war_star_snapshots
 `);
 
 // ── War Boards (auto-updating war leaderboard) ──
@@ -246,6 +265,8 @@ module.exports = {
   upsertWarStarSnapshot,
   getWarStarSnapshot,
   getWarLeaderboard,
+  getWarLeaderboardAllTime,
+  getEarliestWarMonth,
   setWarBoard,
   getAllWarBoards,
   updateWarBoardMessage,

@@ -133,11 +133,11 @@ function successEmbed(message) {
     .setDescription(`\u2705 ${message}`);
 }
 
-function warLeaderboardEmbed(guildName, entries, yearMonth) {
+function warLeaderboardEmbed(guildName, entries, label, isAllTime = false) {
   const embed = new EmbedBuilder()
     .setColor(COLORS.legend)
-    .setTitle(`\u2694\uFE0F ${guildName} - War Stars Leaderboard`)
-    .setDescription(`Month: \`${yearMonth}\`\n\u2800`);
+    .setTitle(`\u2694\uFE0F ${guildName} - War Stars ${isAllTime ? '(All Time)' : 'Leaderboard'}`)
+    .setDescription(`${isAllTime ? 'Tracking since' : 'Month'}: \`${label}\`\n\u2800`);
 
   if (entries.length === 0) {
     embed.addFields({ name: 'No Data', value: 'No tracked players yet. Use `/add <tag>` or `/clan add` to start.' });
@@ -145,18 +145,22 @@ function warLeaderboardEmbed(guildName, entries, yearMonth) {
   }
 
   const medals = ['\uD83E\uDD47', '\uD83E\uDD48', '\uD83E\uDD49'];
-
-  // Filter to show only players with stats or first 25 regardless
   const topEntries = entries.slice(0, 25);
 
-  const lines = topEntries.map((e, i) => {
+  for (const [i, e] of topEntries.entries()) {
     const medal = medals[i] || `**${i + 1}.**`;
     const stars = e.stars_this_month ?? 0;
+    const attacks = e.attack_count ?? 0;
     const total = e.current_stars ?? 0;
-    return `${medal} **${e.player_name}** \u2014 \u2B50 **${stars}** (общо: ${total})`;
-  });
+    const avg = attacks > 0 ? (stars / attacks).toFixed(2) : '0.00';
 
-  embed.addFields({ name: 'Rankings', value: lines.join('\n') });
+    embed.addFields({
+      name: `${medal} ${e.player_name} \u2014 \u2B50 ${stars}`,
+      value: `Attacks: **${attacks}**  \u2502  Avg: **${avg}** \u2B50/attack  \u2502  Total: ${total}`,
+      inline: false,
+    });
+  }
+
   return embed;
 }
 

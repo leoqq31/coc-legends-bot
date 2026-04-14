@@ -78,6 +78,7 @@ db.pragma('foreign_keys = ON');
       year_month TEXT NOT NULL,
       start_stars INTEGER NOT NULL DEFAULT 0,
       current_stars INTEGER NOT NULL DEFAULT 0,
+      attack_count INTEGER NOT NULL DEFAULT 0,
       PRIMARY KEY (player_tag, year_month)
     );
 
@@ -93,6 +94,13 @@ db.pragma('foreign_keys = ON');
     CREATE INDEX IF NOT EXISTS idx_daily_stats_player ON daily_stats(player_tag);
     CREATE INDEX IF NOT EXISTS idx_players_clan ON players(clan_tag);
   `);
+
+  // Migration: add attack_count column if missing
+  try {
+    db.exec(`ALTER TABLE war_star_snapshots ADD COLUMN attack_count INTEGER NOT NULL DEFAULT 0`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
 })();
 
 module.exports = { db };
