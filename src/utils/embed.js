@@ -137,7 +137,7 @@ function warLeaderboardEmbed(guildName, entries, label, isAllTime = false) {
   const embed = new EmbedBuilder()
     .setColor(COLORS.legend)
     .setTitle(`\u2694\uFE0F ${guildName} - War Stars ${isAllTime ? '(All Time)' : 'Leaderboard'}`)
-    .setDescription(`${isAllTime ? 'Tracking since' : 'Month'}: \`${label}\`\n\u2800`);
+    .setDescription(`${isAllTime ? 'Tracking since' : 'Month'}: \`${label}\``);
 
   if (entries.length === 0) {
     embed.addFields({ name: 'No Data', value: 'No tracked players yet. Use `/add <tag>` or `/clan add` to start.' });
@@ -145,21 +145,37 @@ function warLeaderboardEmbed(guildName, entries, label, isAllTime = false) {
   }
 
   const medals = ['\uD83E\uDD47', '\uD83E\uDD48', '\uD83E\uDD49'];
-  const topEntries = entries.slice(0, 25);
+  const topEntries = entries.slice(0, 50);
 
-  for (const [i, e] of topEntries.entries()) {
+  const lines = topEntries.map((e, i) => {
     const medal = medals[i] || `**${i + 1}.**`;
     const stars = e.stars_this_month ?? 0;
     const attacks = e.attack_count ?? 0;
     const total = e.current_stars ?? 0;
     const avg = attacks > 0 ? (stars / attacks).toFixed(2) : '0.00';
 
+    return `${medal} **${e.player_name}** — \u2B50 ${stars} | ${attacks} atk | ${avg} avg | ${total} total`;
+  });
+
+  // Split into chunks if needed (embed value max 1024 chars per field)
+  const chunks = [];
+  let current = '';
+  for (const line of lines) {
+    if ((current + line + '\n').length > 1000) {
+      chunks.push(current);
+      current = '';
+    }
+    current += line + '\n';
+  }
+  if (current) chunks.push(current);
+
+  chunks.forEach((chunk, idx) => {
     embed.addFields({
-      name: `${medal} ${e.player_name} \u2014 \u2B50 ${stars}`,
-      value: `Attacks: **${attacks}**  \u2502  Avg: **${avg}** \u2B50/attack  \u2502  Total: ${total}`,
+      name: idx === 0 ? 'Rankings' : '\u200B',
+      value: chunk,
       inline: false,
     });
-  }
+  });
 
   return embed;
 }
