@@ -105,7 +105,13 @@ async function updateWarBoards(client) {
         }
       }
     } catch (err) {
-      console.error(`[WarBoard] Failed for guild ${board.guild_id}:`, err.message);
+      // Any Missing Access error anywhere in the flow → delete the stale entry
+      if (err.code === 50001 || err.message?.includes('Missing Access')) {
+        deleteWarBoard.run(board.guild_id);
+        console.log(`[WarBoard] Removed entry for guild ${board.guild_id} (Missing Access)`);
+      } else {
+        console.error(`[WarBoard] Failed for guild ${board.guild_id}:`, err.message);
+      }
     }
   }
 }
