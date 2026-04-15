@@ -26,6 +26,7 @@ db.pragma('foreign_keys = ON');
       trophies INTEGER NOT NULL DEFAULT 0,
       legend_rank INTEGER NOT NULL DEFAULT 0,
       is_legend INTEGER NOT NULL DEFAULT 0,
+      town_hall INTEGER NOT NULL DEFAULT 0,
       last_updated INTEGER NOT NULL DEFAULT (unixepoch())
     );
 
@@ -98,9 +99,12 @@ db.pragma('foreign_keys = ON');
   // Migration: add attack_count column if missing
   try {
     db.exec(`ALTER TABLE war_star_snapshots ADD COLUMN attack_count INTEGER NOT NULL DEFAULT 0`);
-  } catch (e) {
-    // Column already exists, ignore
-  }
+  } catch (e) { /* ignore */ }
+
+  // Migration: add town_hall column to players if missing
+  try {
+    db.exec(`ALTER TABLE players ADD COLUMN town_hall INTEGER NOT NULL DEFAULT 0`);
+  } catch (e) { /* ignore */ }
 })();
 
 module.exports = { db };

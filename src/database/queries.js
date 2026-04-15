@@ -25,14 +25,15 @@ const getAllClans = db.prepare(`
 // ── Players (auto-discovered from clan scrape) ──
 
 const upsertPlayer = db.prepare(`
-  INSERT INTO players (player_tag, player_name, clan_tag, trophies, legend_rank, is_legend, last_updated)
-  VALUES (?, ?, ?, ?, ?, ?, unixepoch())
+  INSERT INTO players (player_tag, player_name, clan_tag, trophies, legend_rank, is_legend, town_hall, last_updated)
+  VALUES (?, ?, ?, ?, ?, ?, ?, unixepoch())
   ON CONFLICT(player_tag) DO UPDATE SET
     player_name = excluded.player_name,
     clan_tag = excluded.clan_tag,
     trophies = excluded.trophies,
     legend_rank = excluded.legend_rank,
     is_legend = excluded.is_legend,
+    town_hall = excluded.town_hall,
     last_updated = unixepoch()
 `);
 
@@ -189,10 +190,12 @@ const getWarStarSnapshot = db.prepare(`
 const getWarLeaderboard = db.prepare(`
   SELECT twp.player_name, twp.player_tag,
          wss.start_stars, wss.current_stars, wss.attack_count,
-         (wss.current_stars - wss.start_stars) AS stars_this_month
+         (wss.current_stars - wss.start_stars) AS stars_this_month,
+         p.town_hall
   FROM tracked_war_players twp
   LEFT JOIN war_star_snapshots wss
     ON twp.player_tag = wss.player_tag AND wss.year_month = ?
+  LEFT JOIN players p ON twp.player_tag = p.player_tag
   WHERE twp.guild_id = ?
   ORDER BY stars_this_month DESC NULLS LAST, twp.player_name ASC
 `);
@@ -202,11 +205,13 @@ const getWarLeaderboardAllTime = db.prepare(`
          COALESCE(SUM(wss.current_stars - wss.start_stars), 0) AS stars_this_month,
          COALESCE(SUM(wss.attack_count), 0) AS attack_count,
          COALESCE(MAX(wss.current_stars), 0) AS current_stars,
-         MIN(wss.year_month) AS first_month
+         MIN(wss.year_month) AS first_month,
+         p.town_hall
   FROM tracked_war_players twp
   LEFT JOIN war_star_snapshots wss ON twp.player_tag = wss.player_tag
+  LEFT JOIN players p ON twp.player_tag = p.player_tag
   WHERE twp.guild_id = ?
-  GROUP BY twp.player_tag, twp.player_name
+  GROUP BY twp.player_tag, twp.player_name, p.town_hall
   ORDER BY stars_this_month DESC, twp.player_name ASC
 `);
 
