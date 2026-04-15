@@ -4,6 +4,7 @@ const {
   getAllWarBoards,
   getWarLeaderboard,
   updateWarBoardMessage,
+  deleteWarBoard,
 } = require('../database/queries');
 const { warLeaderboardEmbed } = require('../utils/embed');
 
@@ -65,10 +66,15 @@ async function updateWarBoards(client) {
       try {
         channel = await client.channels.fetch(board.channel_id);
       } catch (err) {
-        // Channel deleted or no access — silently skip
+        // Channel deleted or no access — remove the stale entry
+        deleteWarBoard.run(board.guild_id);
+        console.log(`[WarBoard] Removed stale entry for guild ${board.guild_id} (channel inaccessible)`);
         continue;
       }
-      if (!channel) continue;
+      if (!channel) {
+        deleteWarBoard.run(board.guild_id);
+        continue;
+      }
 
       const guild = channel.guild;
       const entries = getWarLeaderboard.all(yearMonth, guild.id);
@@ -87,8 +93,17 @@ async function updateWarBoards(client) {
         }
       }
 
-      const msg = await channel.send({ embeds: [embed] });
-      updateWarBoardMessage.run(msg.id, guild.id);
+      try {
+        const msg = await channel.send({ embeds: [embed] });
+        updateWarBoardMessage.run(msg.id, guild.id);
+      } catch (err) {
+        if (err.code === 50001 || err.message?.includes('Missing Access')) {
+          deleteWarBoard.run(board.guild_id);
+          console.log(`[WarBoard] Removed entry for guild ${board.guild_id} (no send access)`);
+        } else {
+          throw err;
+        }
+      }
     } catch (err) {
       console.error(`[WarBoard] Failed for guild ${board.guild_id}:`, err.message);
     }

@@ -237,6 +237,10 @@ const updateWarBoardMessage = db.prepare(`
   UPDATE war_boards SET message_id = ? WHERE guild_id = ?
 `);
 
+const deleteWarBoard = db.prepare(`
+  DELETE FROM war_boards WHERE guild_id = ?
+`);
+
 module.exports = {
   registerClan,
   removeClan,
@@ -275,4 +279,5 @@ module.exports = {
   setWarBoard,
   getAllWarBoards,
   updateWarBoardMessage,
+  deleteWarBoard,
 };
