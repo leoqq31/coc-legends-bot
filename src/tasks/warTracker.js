@@ -40,9 +40,11 @@ function updatePlayerWarStars(playerTag, playerData) {
     startStars = existing.start_stars;
     attackCount = existing.attack_count;
 
-    // If stars increased since last poll, count as 1 attack
-    if (currentStars > existing.current_stars) {
-      attackCount += 1;
+    // If stars increased, estimate attacks by dividing by 3 (max stars per attack)
+    // Round up: +1 to +3 stars = 1 attack, +4 to +6 = 2 attacks, etc.
+    const diff = currentStars - existing.current_stars;
+    if (diff > 0) {
+      attackCount += Math.ceil(diff / 3);
       attackHappened = true;
     }
   }
