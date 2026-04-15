@@ -153,8 +153,9 @@ function warLeaderboardEmbed(guildName, entries, label, isAllTime = false) {
     const attacks = e.attack_count ?? 0;
     const total = e.current_stars ?? 0;
     const avg = attacks > 0 ? (stars / attacks).toFixed(2) : '0.00';
+    const th = e.town_hall ? ` \`TH${e.town_hall}\`` : '';
 
-    return `${medal} **${e.player_name}** — \u2B50 ${stars} | ${attacks} atk | ${avg} avg | ${total} total`;
+    return `${medal} **${e.player_name}**${th} — \u2B50 ${stars} | ${attacks} atk | ${avg} avg | ${total} total`;
   });
 
   // Split into chunks if needed (embed value max 1024 chars per field)

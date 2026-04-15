@@ -61,7 +61,13 @@ async function updateWarBoards(client) {
 
   for (const board of boards) {
     try {
-      const channel = await client.channels.fetch(board.channel_id);
+      let channel;
+      try {
+        channel = await client.channels.fetch(board.channel_id);
+      } catch (err) {
+        // Channel deleted or no access — silently skip
+        continue;
+      }
       if (!channel) continue;
 
       const guild = channel.guild;

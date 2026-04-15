@@ -100,7 +100,8 @@ async function pollAllClans(isReset = false) {
             clan.clan_tag,
             currentTrophies,
             legendRank,
-            isLegend ? 1 : 0
+            isLegend ? 1 : 0,
+            playerData.townHallLevel || 0
           );
 
           // Auto-add to war stars roster (persists even if they leave clan)
