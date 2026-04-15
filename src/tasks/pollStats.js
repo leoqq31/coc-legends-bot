@@ -289,15 +289,35 @@ async function postDailySummary(client) {
 function startPolling(client) {
   _client = client;
 
-  async function pollAndUpdate(isReset = false) {
-    await pollAllClans(isReset);
-    await updateBoards(client);
-    await updateWarBoards(client);
+  let pollInProgress = false;
+
+  async function runPoll(isReset = false) {
+    if (pollInProgress) {
+      console.log('[Poll] Skipping — previous poll still running');
+      return;
+    }
+    pollInProgress = true;
+    try {
+      await pollAllClans(isReset);
+    } finally {
+      pollInProgress = false;
+    }
   }
 
-  // Regular poll every 30 minutes
+  async function updateAllBoards() {
+    await updateBoards(client).catch(err => console.error('[Board] Update error:', err));
+    await updateWarBoards(client).catch(err => console.error('[WarBoard] Update error:', err));
+  }
+
+  // Poll every N minutes (fetches data, updates DB)
   cron.schedule(`*/${config.pollIntervalMinutes} * * * *`, () => {
-    pollAndUpdate().catch(err => console.error('[Poll] Cron error:', err));
+    runPoll().catch(err => console.error('[Poll] Cron error:', err));
+  });
+
+  // Update boards every minute — independent of poll timing
+  // Always shows the latest DB state even if poll takes > 1 minute
+  cron.schedule('* * * * *', () => {
+    updateAllBoards().catch(err => console.error('[Board] Cron error:', err));
   });
 
   // Post daily summary at 5:00 AM UTC (before reset)
@@ -307,11 +327,12 @@ function startPolling(client) {
 
   // Legend day reset poll at 5:01 AM UTC
   cron.schedule('1 5 * * *', () => {
-    pollAndUpdate(true).catch(err => console.error('[Poll] Reset poll error:', err));
+    runPoll(true).catch(err => console.error('[Poll] Reset poll error:', err));
   }, { timezone: 'UTC' });
 
   // Initial poll on startup
-  pollAndUpdate().catch(err => console.error('[Poll] Initial poll error:', err));
+  runPoll().catch(err => console.error('[Poll] Initial poll error:', err));
+  updateAllBoards().catch(err => console.error('[Board] Initial update error:', err));
 
   console.log('[Poll] Cron jobs started (legend + war + reset).');
 }
