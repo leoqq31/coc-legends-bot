@@ -46,10 +46,55 @@ function formatTrophies(n) {
   return `\uD83C\uDFC6 ${n.toLocaleString()}`;
 }
 
+/**
+ * Get current legend week string (e.g. "2026-W16").
+ * Weekly reset assumed Monday 5:00 AM UTC.
+ */
+function getLegendWeek(date = new Date()) {
+  const d = new Date(date);
+  // Shift to anchor week at Monday 5 AM UTC
+  // If before Monday 5 AM UTC, treat as previous week
+  const day = d.getUTCDay(); // 0=Sun, 1=Mon, ...
+  const hours = d.getUTCHours();
+  // Subtract days to get to most recent Monday at 5 AM UTC
+  let daysSinceMonday = (day + 6) % 7; // Mon=0, Tue=1, ..., Sun=6
+  if (daysSinceMonday === 0 && hours < 5) {
+    // Before Monday 5 AM \u2014 count as previous week
+    daysSinceMonday = 7;
+  }
+  d.setUTCDate(d.getUTCDate() - daysSinceMonday);
+  d.setUTCHours(5, 0, 0, 0);
+
+  // Now d is Monday 5 AM UTC of current week.
+  // Generate ISO week label
+  const year = d.getUTCFullYear();
+  // Calculate ISO week number
+  const target = new Date(d);
+  target.setUTCDate(target.getUTCDate() + 3);
+  const firstThursday = new Date(Date.UTC(target.getUTCFullYear(), 0, 4));
+  const week = 1 + Math.round(((target - firstThursday) / 86400000 - 3 + ((firstThursday.getUTCDay() + 6) % 7)) / 7);
+  return `${year}-W${String(week).padStart(2, '0')}`;
+}
+
+/**
+ * Detect Legend League tier from CoC API leagueTier.name.
+ * Returns 'L1', 'L2', 'L3', or '' if not in legends.
+ */
+function detectLegendTier(leagueTierName) {
+  if (!leagueTierName) return '';
+  const name = leagueTierName.toLowerCase();
+  if (name.includes('legend league iii') || name.includes('legend 3')) return 'L3';
+  if (name.includes('legend league ii') || name.includes('legend 2')) return 'L2';
+  if (name.includes('legend league i') || name.includes('legend 1') || name === 'legend league') return 'L1';
+  return '';
+}
+
 module.exports = {
   normalizeTag,
   formatTrophyChange,
   progressBar,
   getLegendDay,
+  getLegendWeek,
+  detectLegendTier,
   formatTrophies,
 };

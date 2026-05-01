@@ -133,6 +133,41 @@ function successEmbed(message) {
     .setDescription(`\u2705 ${message}`);
 }
 
+function weeklyLegendEmbed(guildName, entries, yearWeek, tier) {
+  const embed = new EmbedBuilder()
+    .setColor(COLORS.legend)
+    .setTitle(`🏆 ${guildName} - Legend ${tier} Leaderboard`)
+    .setDescription(`Week: \`${yearWeek}\``);
+
+  if (entries.length === 0) {
+    embed.addFields({ name: 'No Data', value: `No players in Legend ${tier}.` });
+    return embed;
+  }
+
+  const medals = ['🥇', '🥈', '🥉'];
+  const topEntries = entries.slice(0, 50);
+
+  for (const [i, e] of topEntries.entries()) {
+    const medal = medals[i] || `**${i + 1}.**`;
+    const trophies = e.end_trophies ?? e.trophies ?? '?';
+    const net = e.net_trophies != null ? e.net_trophies : 0;
+    const atk = e.attack_trophies ?? 0;
+    const def = e.defense_trophies ?? 0;
+    const th = e.town_hall ? ` \`TH${e.town_hall}\`` : '';
+
+    const netStr = formatTrophyChange(net);
+    const netEmoji = net > 0 ? '🔼' : net < 0 ? '🔽' : '➖';
+
+    embed.addFields({
+      name: `${medal} ${e.player_name}${th} — 🏆 ${trophies}`,
+      value: `⚔️ +${atk}  │  🛡️ -${def}  │  ${netEmoji} **${netStr}**`,
+      inline: false,
+    });
+  }
+
+  return embed;
+}
+
 function warLeaderboardEmbed(guildName, entries, label, isAllTime = false) {
   const embed = new EmbedBuilder()
     .setColor(COLORS.legend)
@@ -186,6 +221,7 @@ module.exports = {
   historyEmbed,
   leaderboardEmbed,
   warLeaderboardEmbed,
+  weeklyLegendEmbed,
   compareEmbed,
   errorEmbed,
   successEmbed,

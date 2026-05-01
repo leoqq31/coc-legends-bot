@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "WebSearch"
+      "WebSearch",
+      "PowerShell($dir = \"C:\\\\Users\\\\Leo\\\\.claude\\\\projects\\\\C--Users-Leo-Desktop-clashofclans\"; $files = @\\(\"98a2f941-e748-4cc4-aac0-a94a9e3516f5.jsonl\",\"ab52aad4-2be2-45e3-aeac-3776b8c8e63f.jsonl\",\"2e114f94-eab2-4707-8ffc-e443b5e0e7d8.jsonl\"\\); foreach \\($f in $files\\) { $p = Join-Path $dir $f; $bytes = [System.IO.File]::ReadAllBytes\\($p\\); $nulls = \\($bytes | Where-Object { $_ -eq 0 }\\).Count; Write-Output \\(\"{0}: size={1} nulls={2}\" -f $f, $bytes.Length, $nulls\\); if \\($nulls -gt 0\\) { for \\($i=0; $i -lt $bytes.Length; $i++\\) { if \\($bytes[$i] -eq 0\\) { Write-Output \\(\"  first null at byte $i\"\\); break } } }; $tail = $bytes[\\($bytes.Length-60\\)..\\($bytes.Length-1\\)]; Write-Output \\(\"  last bytes: \" + \\($tail -join ','\\)\\) })",
+      "PowerShell($p = \"C:\\\\Users\\\\Leo\\\\.claude\\\\projects\\\\C--Users-Leo-Desktop-clashofclans\\\\2e114f94-eab2-4707-8ffc-e443b5e0e7d8.jsonl\"; Copy-Item $p \"$p.bak\"; $bytes = [System.IO.File]::ReadAllBytes\\($p\\); $firstNull = 7582991; $cut = $firstNull; while \\($cut -gt 0 -and $bytes[$cut-1] -ne 10\\) { $cut-- }; Write-Output \"Truncating at byte $cut \\(was $\\($bytes.Length\\)\\)\"; $clean = $bytes[0..\\($cut-1\\)]; [System.IO.File]::WriteAllBytes\\($p, $clean\\); $newSize = \\(Get-Item $p\\).Length; Write-Output \"New size: $newSize\"; $newBytes = [System.IO.File]::ReadAllBytes\\($p\\); $tail = $newBytes[\\($newBytes.Length-80\\)..\\($newBytes.Length-1\\)]; Write-Output \\(\"Last bytes: \" + [System.Text.Encoding]::UTF8.GetString\\($tail\\)\\))"
     ]
   }
 }

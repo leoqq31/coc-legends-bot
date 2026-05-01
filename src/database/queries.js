@@ -25,8 +25,8 @@ const getAllClans = db.prepare(`
 // ── Players (auto-discovered from clan scrape) ──
 
 const upsertPlayer = db.prepare(`
-  INSERT INTO players (player_tag, player_name, clan_tag, trophies, legend_rank, is_legend, town_hall, last_updated)
-  VALUES (?, ?, ?, ?, ?, ?, ?, unixepoch())
+  INSERT INTO players (player_tag, player_name, clan_tag, trophies, legend_rank, is_legend, town_hall, legend_tier, last_updated)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, unixepoch())
   ON CONFLICT(player_tag) DO UPDATE SET
     player_name = excluded.player_name,
     clan_tag = excluded.clan_tag,
@@ -34,6 +34,7 @@ const upsertPlayer = db.prepare(`
     legend_rank = excluded.legend_rank,
     is_legend = excluded.is_legend,
     town_hall = excluded.town_hall,
+    legend_tier = excluded.legend_tier,
     last_updated = unixepoch()
 `);
 
@@ -109,6 +110,71 @@ const getAllBoards = db.prepare(`
 
 const updateBoardMessage = db.prepare(`
   UPDATE boards SET message_id = ? WHERE guild_id = ?
+`);
+
+// ── Weekly Legend Stats (L2 / L3) ──
+
+const upsertWeeklyLegendStats = db.prepare(`
+  INSERT INTO weekly_legend_stats (player_tag, year_week, tier, start_trophies, end_trophies, net_trophies, attack_trophies, defense_trophies)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  ON CONFLICT(player_tag, year_week) DO UPDATE SET
+    tier = excluded.tier,
+    end_trophies = excluded.end_trophies,
+    net_trophies = excluded.net_trophies,
+    attack_trophies = excluded.attack_trophies,
+    defense_trophies = excluded.defense_trophies
+`);
+
+const getWeeklyLegendStats = db.prepare(`
+  SELECT * FROM weekly_legend_stats WHERE player_tag = ? AND year_week = ?
+`);
+
+const getWeeklyLegendLeaderboard = db.prepare(`
+  SELECT p.player_name, p.player_tag, p.trophies, p.town_hall,
+         w.start_trophies, w.end_trophies, w.net_trophies,
+         w.attack_trophies, w.defense_trophies
+  FROM players p
+  LEFT JOIN weekly_legend_stats w ON p.player_tag = w.player_tag AND w.year_week = ?
+  WHERE p.clan_tag = ? AND p.legend_tier = ?
+  ORDER BY COALESCE(w.end_trophies, p.trophies) DESC
+`);
+
+// ── Legend Boards L2 / L3 ──
+
+const setLegendBoardL2 = db.prepare(`
+  INSERT INTO legend_boards_l2 (guild_id, channel_id, message_id)
+  VALUES (?, ?, ?)
+  ON CONFLICT(guild_id) DO UPDATE SET
+    channel_id = excluded.channel_id,
+    message_id = excluded.message_id
+`);
+
+const getAllLegendBoardsL2 = db.prepare(`SELECT * FROM legend_boards_l2`);
+
+const updateLegendBoardL2Message = db.prepare(`
+  UPDATE legend_boards_l2 SET message_id = ? WHERE guild_id = ?
+`);
+
+const deleteLegendBoardL2 = db.prepare(`
+  DELETE FROM legend_boards_l2 WHERE guild_id = ?
+`);
+
+const setLegendBoardL3 = db.prepare(`
+  INSERT INTO legend_boards_l3 (guild_id, channel_id, message_id)
+  VALUES (?, ?, ?)
+  ON CONFLICT(guild_id) DO UPDATE SET
+    channel_id = excluded.channel_id,
+    message_id = excluded.message_id
+`);
+
+const getAllLegendBoardsL3 = db.prepare(`SELECT * FROM legend_boards_l3`);
+
+const updateLegendBoardL3Message = db.prepare(`
+  UPDATE legend_boards_l3 SET message_id = ? WHERE guild_id = ?
+`);
+
+const deleteLegendBoardL3 = db.prepare(`
+  DELETE FROM legend_boards_l3 WHERE guild_id = ?
 `);
 
 // ── Player Levels (upgrade tracking) ──
@@ -280,4 +346,15 @@ module.exports = {
   getAllWarBoards,
   updateWarBoardMessage,
   deleteWarBoard,
+  upsertWeeklyLegendStats,
+  getWeeklyLegendStats,
+  getWeeklyLegendLeaderboard,
+  setLegendBoardL2,
+  getAllLegendBoardsL2,
+  updateLegendBoardL2Message,
+  deleteLegendBoardL2,
+  setLegendBoardL3,
+  getAllLegendBoardsL3,
+  updateLegendBoardL3Message,
+  deleteLegendBoardL3,
 };

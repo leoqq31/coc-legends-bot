@@ -89,6 +89,31 @@ db.pragma('foreign_keys = ON');
       message_id TEXT
     );
 
+    CREATE TABLE IF NOT EXISTS weekly_legend_stats (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      player_tag TEXT NOT NULL,
+      year_week TEXT NOT NULL,
+      tier TEXT NOT NULL DEFAULT 'L2',
+      start_trophies INTEGER NOT NULL DEFAULT 0,
+      end_trophies INTEGER NOT NULL DEFAULT 0,
+      net_trophies INTEGER NOT NULL DEFAULT 0,
+      attack_trophies INTEGER NOT NULL DEFAULT 0,
+      defense_trophies INTEGER NOT NULL DEFAULT 0,
+      UNIQUE(player_tag, year_week)
+    );
+
+    CREATE TABLE IF NOT EXISTS legend_boards_l2 (
+      guild_id TEXT NOT NULL PRIMARY KEY,
+      channel_id TEXT NOT NULL,
+      message_id TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS legend_boards_l3 (
+      guild_id TEXT NOT NULL PRIMARY KEY,
+      channel_id TEXT NOT NULL,
+      message_id TEXT
+    );
+
     CREATE INDEX IF NOT EXISTS idx_daily_stats_date ON daily_stats(date);
     CREATE INDEX IF NOT EXISTS idx_war_snapshots_month ON war_star_snapshots(year_month);
     CREATE INDEX IF NOT EXISTS idx_tracked_war_guild ON tracked_war_players(guild_id);
@@ -104,6 +129,11 @@ db.pragma('foreign_keys = ON');
   // Migration: add town_hall column to players if missing
   try {
     db.exec(`ALTER TABLE players ADD COLUMN town_hall INTEGER NOT NULL DEFAULT 0`);
+  } catch (e) { /* ignore */ }
+
+  // Migration: add legend_tier column to players if missing
+  try {
+    db.exec(`ALTER TABLE players ADD COLUMN legend_tier TEXT NOT NULL DEFAULT ''`);
   } catch (e) { /* ignore */ }
 })();
 

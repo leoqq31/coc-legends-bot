@@ -1,9 +1,9 @@
 const cron = require('node-cron');
 const { getPlayer, getClanMembers } = require('../api/coc');
-const { getAllClans, upsertPlayer, upsertDailyStats, getDailyStats, getAllBoards, getGuildClans, getClanLeaderboard, updateBoardMessage, getClanPlayers, removePlayer, getAllUpgradeChannels, getAllDailyChannels, addTrackedWarPlayer } = require('../database/queries');
+const { getAllClans, upsertPlayer, upsertDailyStats, getDailyStats, getAllBoards, getGuildClans, getClanLeaderboard, updateBoardMessage, getClanPlayers, removePlayer, getAllUpgradeChannels, getAllDailyChannels, addTrackedWarPlayer, upsertWeeklyLegendStats, getWeeklyLegendStats, getWeeklyLegendLeaderboard, getAllLegendBoardsL2, getAllLegendBoardsL3, updateLegendBoardL2Message, updateLegendBoardL3Message, deleteLegendBoardL2, deleteLegendBoardL3 } = require('../database/queries');
 const { EmbedBuilder } = require('discord.js');
-const { getLegendDay } = require('../utils/format');
-const { leaderboardEmbed } = require('../utils/embed');
+const { getLegendDay, getLegendWeek, detectLegendTier } = require('../utils/format');
+const { leaderboardEmbed, weeklyLegendEmbed } = require('../utils/embed');
 const { checkPlayerUpgrades, sendUpgradeNotifications } = require('./upgradeTracker');
 const { updatePlayerWarStars, updateWarBoards } = require('./warTracker');
 const config = require('../config');
@@ -93,6 +93,7 @@ async function pollAllClans(isReset = false) {
           const currentTrophies = playerData.trophies;
           const isLegend = !!legendStats?.currentSeason || currentTrophies >= 4000;
           const legendRank = legendStats?.currentSeason?.rank || 0;
+          const legendTier = detectLegendTier(playerData.leagueTier?.name);
 
           upsertPlayer.run(
             member.tag,
@@ -101,8 +102,46 @@ async function pollAllClans(isReset = false) {
             currentTrophies,
             legendRank,
             isLegend ? 1 : 0,
-            playerData.townHallLevel || 0
+            playerData.townHallLevel || 0,
+            legendTier
           );
+
+          // Track weekly stats for L2/L3 players
+          if (legendTier === 'L2' || legendTier === 'L3') {
+            const yearWeek = getLegendWeek();
+            const existing = getWeeklyLegendStats.get(member.tag, yearWeek);
+            const startTrophies = existing ? existing.start_trophies : currentTrophies;
+            const netTrophies = currentTrophies - startTrophies;
+
+            let attackTrophies, defenseTrophies;
+            if (!existing) {
+              attackTrophies = 0;
+              defenseTrophies = 0;
+            } else {
+              const diff = currentTrophies - existing.end_trophies;
+              if (diff > 0) {
+                attackTrophies = existing.attack_trophies + diff;
+                defenseTrophies = existing.defense_trophies;
+              } else if (diff < 0) {
+                attackTrophies = existing.attack_trophies;
+                defenseTrophies = existing.defense_trophies + Math.abs(diff);
+              } else {
+                attackTrophies = existing.attack_trophies;
+                defenseTrophies = existing.defense_trophies;
+              }
+            }
+
+            upsertWeeklyLegendStats.run(
+              member.tag,
+              yearWeek,
+              legendTier,
+              startTrophies,
+              currentTrophies,
+              netTrophies,
+              attackTrophies,
+              defenseTrophies
+            );
+          }
 
           // Auto-add to war stars roster (persists even if they leave clan)
           addTrackedWarPlayer.run(member.tag, clan.guild_id, member.name);
@@ -239,6 +278,76 @@ async function updateBoards(client) {
 }
 
 /**
+ * Update L2 / L3 weekly leaderboards.
+ */
+async function updateWeeklyBoard(client, tier) {
+  const getBoards = tier === 'L2' ? getAllLegendBoardsL2 : getAllLegendBoardsL3;
+  const updateMsg = tier === 'L2' ? updateLegendBoardL2Message : updateLegendBoardL3Message;
+  const deleteBoard = tier === 'L2' ? deleteLegendBoardL2 : deleteLegendBoardL3;
+  const tierLabel = tier === 'L2' ? 'II' : 'III';
+
+  const boards = getBoards.all();
+  if (boards.length === 0) return;
+
+  const yearWeek = getLegendWeek();
+
+  for (const board of boards) {
+    try {
+      let channel;
+      try {
+        channel = await client.channels.fetch(board.channel_id);
+      } catch (err) {
+        deleteBoard.run(board.guild_id);
+        continue;
+      }
+      if (!channel) {
+        deleteBoard.run(board.guild_id);
+        continue;
+      }
+
+      const guild = channel.guild;
+      const clans = getGuildClans.all(guild.id);
+
+      let allEntries = [];
+      for (const clan of clans) {
+        const entries = getWeeklyLegendLeaderboard.all(yearWeek, clan.clan_tag, tier);
+        allEntries.push(...entries);
+      }
+      allEntries.sort((a, b) => (b.end_trophies || b.trophies || 0) - (a.end_trophies || a.trophies || 0));
+
+      const embed = weeklyLegendEmbed(guild.name, allEntries, yearWeek, tierLabel);
+      embed.setFooter({ text: 'Last updated' });
+      embed.setTimestamp();
+
+      if (board.message_id) {
+        try {
+          const msg = await channel.messages.fetch(board.message_id);
+          await msg.edit({ embeds: [embed] });
+          continue;
+        } catch (err) { /* fall through to post new */ }
+      }
+
+      try {
+        const msg = await channel.send({ embeds: [embed] });
+        updateMsg.run(msg.id, guild.id);
+      } catch (err) {
+        if (err.code === 50001 || err.message?.includes('Missing Access')) {
+          deleteBoard.run(board.guild_id);
+        } else {
+          throw err;
+        }
+      }
+    } catch (err) {
+      if (err.code === 50001 || err.message?.includes('Missing Access')) {
+        deleteBoard.run(board.guild_id);
+      } else {
+        console.error(`[Legend ${tier}] Failed for guild ${board.guild_id}:`, err.message);
+      }
+    }
+  }
+}
+
+/**
  * Post yesterday's legend summary to all configured daily channels.
  */
 async function postDailySummary(client) {
@@ -307,6 +416,8 @@ function startPolling(client) {
   async function updateAllBoards() {
     await updateBoards(client).catch(err => console.error('[Board] Update error:', err));
     await updateWarBoards(client).catch(err => console.error('[WarBoard] Update error:', err));
+    await updateWeeklyBoard(client, 'L2').catch(err => console.error('[L2] Update error:', err));
+    await updateWeeklyBoard(client, 'L3').catch(err => console.error('[L3] Update error:', err));
   }
 
   // Poll every N minutes (fetches data, updates DB)
@@ -326,6 +437,7 @@ function startPolling(client) {
   }, { timezone: 'UTC' });
 
   // Legend day reset poll at 5:01 AM UTC
+  // Note: weekly reset for L2/L3 happens automatically when getLegendWeek() returns a new value
   cron.schedule('1 5 * * *', () => {
     runPoll(true).catch(err => console.error('[Poll] Reset poll error:', err));
   }, { timezone: 'UTC' });
