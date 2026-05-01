@@ -77,15 +77,20 @@ function getLegendWeek(date = new Date()) {
 }
 
 /**
- * Detect Legend League tier from CoC API leagueTier.name.
+ * Detect Legend League tier from CoC API leagueTier object.
+ * The API returns "Legend League" as name for all 3 tiers — differentiated by ID:
+ *   105000036 = Legend 1
+ *   105000035 = Legend 2
+ *   105000034 = Legend 3
  * Returns 'L1', 'L2', 'L3', or '' if not in legends.
  */
-function detectLegendTier(leagueTierName) {
-  if (!leagueTierName) return '';
-  const name = leagueTierName.toLowerCase();
-  if (name.includes('legend league iii') || name.includes('legend 3')) return 'L3';
-  if (name.includes('legend league ii') || name.includes('legend 2')) return 'L2';
-  if (name.includes('legend league i') || name.includes('legend 1') || name === 'legend league') return 'L1';
+function detectLegendTier(leagueTier) {
+  if (!leagueTier) return '';
+  // Support being called with either the full object or just the id
+  const id = typeof leagueTier === 'object' ? leagueTier.id : leagueTier;
+  if (id === 105000036) return 'L1';
+  if (id === 105000035) return 'L2';
+  if (id === 105000034) return 'L3';
   return '';
 }
 

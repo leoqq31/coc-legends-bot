@@ -93,7 +93,7 @@ async function pollAllClans(isReset = false) {
           const currentTrophies = playerData.trophies;
           const isLegend = !!legendStats?.currentSeason || currentTrophies >= 4000;
           const legendRank = legendStats?.currentSeason?.rank || 0;
-          const legendTier = detectLegendTier(playerData.leagueTier?.name);
+          const legendTier = detectLegendTier(playerData.leagueTier);
 
           upsertPlayer.run(
             member.tag,
