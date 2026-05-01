@@ -147,23 +147,35 @@ function weeklyLegendEmbed(guildName, entries, yearWeek, tier) {
   const medals = ['🥇', '🥈', '🥉'];
   const topEntries = entries.slice(0, 50);
 
-  for (const [i, e] of topEntries.entries()) {
+  const lines = topEntries.map((e, i) => {
     const medal = medals[i] || `**${i + 1}.**`;
     const trophies = e.end_trophies ?? e.trophies ?? '?';
     const net = e.net_trophies != null ? e.net_trophies : 0;
-    const atk = e.attack_trophies ?? 0;
-    const def = e.defense_trophies ?? 0;
     const th = e.town_hall ? ` \`TH${e.town_hall}\`` : '';
-
     const netStr = formatTrophyChange(net);
     const netEmoji = net > 0 ? '🔼' : net < 0 ? '🔽' : '➖';
+    return `${medal} **${e.player_name}**${th} — 🏆 ${trophies} | ${netEmoji} **${netStr}** this week`;
+  });
 
+  // Split into chunks if too long for one field
+  const chunks = [];
+  let current = '';
+  for (const line of lines) {
+    if ((current + line + '\n').length > 1000) {
+      chunks.push(current);
+      current = '';
+    }
+    current += line + '\n';
+  }
+  if (current) chunks.push(current);
+
+  chunks.forEach((chunk, idx) => {
     embed.addFields({
-      name: `${medal} ${e.player_name}${th} — 🏆 ${trophies}`,
-      value: `⚔️ +${atk}  │  🛡️ -${def}  │  ${netEmoji} **${netStr}**`,
+      name: idx === 0 ? 'Rankings' : '​',
+      value: chunk,
       inline: false,
     });
-  }
+  });
 
   return embed;
 }
